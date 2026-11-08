@@ -27,6 +27,8 @@ They are written for Roblox Studio's Assistant. They refer to its tools, such as
 
 Each skill is one `SKILL.md` file with a name and description at the top.
 
+When the Assistant asks to run code during a scan, approve each command on its own and check that it only reads. Studio may warn that a command "uses MessagingService" when the name only appears in a search list. Do not choose "Always accept" for the session.
+
 ## Limits
 
 - These skills have not been tested end to end yet.
