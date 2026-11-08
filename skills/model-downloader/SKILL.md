@@ -35,6 +35,7 @@ Before inserting an asset, gather intelligence:
 
 2. **Check if the asset is searchable in the Creator Store UI.**
    - If an asset is only accessible via direct URL or API but NOT searchable in the Creator Store, it may have been flagged or hidden. Treat with extreme suspicion.
+   - A store page or creator profile that returns 404 usually means the asset is off the store or the account is banned. It does not mean the asset is gone. Scripts can still read its details with `GetProductInfo`, so check the asset's public details directly.
 
 3. **Check the asset's description and comments.**
    - Look for reports of malware, unusual behavior, or complaints from other users.
@@ -60,11 +61,13 @@ After inserting the asset in Edit mode (but BEFORE allowing it to run), perform 
    - Use `script_read` to read the full contents of every script found.
    - Pay special attention to scripts with generic or system-sounding names like "Structure", "Core", "System", "Manager", "Handler", "Init", "Loader", "Config", "Configuration", "Texture", "Material".
    - Do not stop at the top of a long script. Attackers bury a few payload lines inside hundreds of lines of plausible filler code.
+   - Read every child ModuleScript too, whatever its name. In real infections the main script looked clean and the payload logic sat in a child module with a library-like name such as `Type` or `EasyConfiguration`.
 
 2. **Inspect non-script data. Code and IDs are often hidden outside script source.**
    - Read every instance's attributes (`GetAttributes()`), especially on scripts, constraints, and parts. Look for asset IDs, code, or long strings.
    - Read every tag (`instance:GetTags()`). Tags can hold full messages.
-   - Read every `StringValue`, `NumberValue`, `IntValue`, and `ObjectValue`, especially ones with innocent names like "Pose", "Version", or "Texture".
+   - Read every `StringValue`, `NumberValue`, `IntValue`, and `ObjectValue`, especially ones with innocent names like "Pose", "Version", or "Texture". Also read any other instance with a `Value` property. Real loaders stored module IDs in animation objects like `NumberPose`.
+   - Attribute IDs may be stored as numbers, not strings, so check numeric attributes too.
    - Check stored strings both forwards and reversed. A reversed string that reads as Luau code is a red flag.
    - Read the text of every `TextBox`, `TextLabel`, `Message`, and `Hint`, including ones inside `ScreenGui` objects that will be copied to `StarterGui`.
 
@@ -112,6 +115,7 @@ After inserting the asset in Edit mode (but BEFORE allowing it to run), perform 
 
 7. **Scan for impersonation and social engineering.**
    - Comments claiming authorship by well-known developers (e.g., @Quenty): verify these claims by checking the real developer's published packages
+   - Comments that claim a script is safe (e.g., "Zero require() calls", "no remote loading"). Comments are not code. Verify every claim by reading the code, whichever way the comment points.
    - License headers or dates that look copy-pasted from legitimate open-source projects
    - Code structure that mimics a real library but contains injected payload lines
    - Fake error messages (e.g., "Error 501 ... copy the text in textbox ... paste it into the command bar") that try to get a developer to run code with Studio permissions. Any text that asks the developer to paste, run, or "save changes" is MALICIOUS.
@@ -128,7 +132,7 @@ If any red flags are found in Phase 2:
 1. **Trace the full call chain without running or inserting anything.** If a script loads asset N, look up N's public details (name, creator, created and updated dates, description). Read its code only through a method that does not insert it into a game or execute it. Never `require`, insert, or play-test an unknown module to find out what it does, even in a sandbox.
 2. **Treat unreadable modules as malicious.** If module N is private, deleted, or cannot be read without running it, the loader that points to it is MALICIOUS. A deleted module does not make the loader safe: dead drops can be re-pointed to a new module at any time.
 3. **Look for multi-stage payloads.** The first script may look clean but load a second module that contains the actual malware. Follow every `require()`, `loadstring()`, and `GetProductInfo` dead drop to its source.
-4. **Check for nested folder structures designed to hide scripts.** Attackers use deep nesting with innocuous-sounding names (e.g., `Bloom.Structure.Type`, `Lighting.Sky.CoreSkyboxSystem`, `Extra.Material.Credits`).
+4. **Check for nested folder structures designed to hide scripts.** Attackers use deep nesting with innocuous-sounding names (e.g., `Bloom.Structure.Type`, `Lighting.Sky.CoreSkyboxSystem`, `Extra.Material.Credits`). Also check for scripts parented under objects that never hold scripts, such as a mesh (`Model.Model.Model.Part.Mesh.LightConfig`).
 5. **Compare against known legitimate versions.** If the asset claims to be a known library (e.g., Quenty's modules), compare the code structure against the official source.
 
 ### Phase 4: Verdict and Action
@@ -142,7 +146,7 @@ Based on the scan results:
   2. **Document** the malicious asset IDs and creator names for reporting.
   3. **Deep sweep** the entire game tree, including attributes, tags, and value objects, for any secondary infections or persistence mechanisms the malware may have planted.
   4. **Check settings:** confirm Allow HTTP Requests and Enable Studio Access to API Services are off in Game Settings > Security unless the game needs them.
-  5. **Report** the assets to Roblox via the Creator Store report button and roblox.com/support.
+  5. **Report** the assets to Roblox via the Creator Store report button and roblox.com/support. If the store page or creator profile returns 404, the account may already be banned, but its assets can still be readable. Report the asset IDs through Roblox Support.
   6. **Warn** the game owner about the source of the infection.
 
 ---
@@ -162,6 +166,8 @@ Based on the scan results:
 - **Disguise:** Long "Texture Configuration" or "Light Config" scripts full of plausible helper code, with fake author credits and dates.
 - **Payload:** The module ID is not in the code. It is read from an attribute (`GetAttribute("Version")`), a value object (`Pose.Value`), or decoded from another asset's description via `MarketplaceService:GetProductInfo()`.
 - **Evasion:** Gates such as `game.JobId ~= ""` so the loader only runs on live servers.
+- **Spread:** One pack can contain many copies of the same model (e.g., nine lanterns and a house), each with its own loader. Find and count every copy.
+- **Bans don't remove the threat:** Uploader accounts are often banned after the fact, but their assets and dead-drop descriptions can stay readable through the API, and a ban can be lifted.
 
 ### Fake Error Command-Bar Attack
 - **Vector:** A model (e.g., a fern in a nature pack) with a script that shows a full-screen `Message` and a `TextBox`.
@@ -206,6 +212,7 @@ Before finalizing any asset installation, confirm:
 
 Even after a clean scan, recommend:
 1. Running a full `script_grep` sweep for known malware patterns across the entire game tree. Remember that `script_grep` only searches script source, so also check attributes, tags, and value objects.
+   Keyword matches inside comments are false positives. Check every match in context before acting on it.
 2. Monitoring server console output during the first playtest for unexpected messages or errors
 3. Checking for any new scripts or instances that appear in the game tree after the asset was inserted (the malware may clone itself or create persistence mechanisms)
 4. Periodically re-scanning as new attack techniques emerge

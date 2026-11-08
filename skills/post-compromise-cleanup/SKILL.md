@@ -38,6 +38,7 @@ Before doing anything else, prevent the malware from causing further damage:
    - Do NOT start a playtest: the malware may behave differently at runtime
    - Do NOT publish the current game state: you don't want to push infected code to live servers
    - Take note of the current state before making changes (screenshots, script exports, a saved `.rbxl` copy kept out of synced folders) for documentation
+   - The owner can also download the current place file outside Studio, signed in on roblox.com, from `https://assetdelivery.roblox.com/v1/asset/?id=PLACEID` (add `&version=N` for older versions). Scanning that file statically never runs the game's scripts and also reaches attributes and value objects.
 
 3. **Lock down settings and access.**
    - In Game Settings > Security, turn off Allow HTTP Requests and Enable Studio Access to API Services unless the game needs them. HTTP lets scripts send data out. Studio API access lets playtest scripts read and change real DataStores.
@@ -125,12 +126,17 @@ Perform a comprehensive scan of the ENTIRE DataModel to find ALL malicious code:
    - Scripts parented to services where scripts don't normally live (Lighting, SoundService, etc.)
    - ModuleScripts with names that mimic legitimate libraries
    - Long scripts full of plausible filler code with a few payload lines buried inside
+   - Scripts parented under objects that never hold scripts, such as a mesh (e.g., `Part.Mesh.LightConfig`)
+   - Many copies of the same model, each carrying its own loader (e.g., nine lanterns from one pack). Count every copy.
+   - Child ModuleScripts with library-like names (e.g., `Type`, `EasyConfiguration`) that hold the real payload logic while the main script looks clean
 
 ### Phase 3: Analysis: Read and Classify Each Suspicious Script
 
 For every script flagged in Phase 2:
 
 1. **Read the full script contents** using `script_read`. Read to the end, not just the top.
+   - Read every child ModuleScript of a suspicious script too, whatever its name.
+   - Do not trust comments in either direction. A comment claiming "no require" or "no network calls" proves nothing, and a keyword match inside a comment is not malicious code.
 2. **Classify the script:**
    - **CLEAN:** Legitimate game code with no malicious patterns. No action needed.
    - **SUSPICIOUS:** Contains some red flags but no confirmed payload. Flag for further investigation.
@@ -152,6 +158,7 @@ For every script flagged in Phase 2:
 Remove every confirmed malicious script and its supporting infrastructure:
 
 1. **Destroy malicious scripts.**
+   - Prefer deleting every model that came from the untrusted pack, not just its scripts. Every part of it came from an untrusted upload.
    ```lua
    -- Example: destroy a malicious script by path
    local malicious = workspace:FindFirstChild("Bloom", true)
@@ -224,6 +231,8 @@ Document everything for the game owner and for Roblox:
 
 2. **Report to Roblox:**
    - Use the report button on each malicious asset's Creator Store page
+   - If a store page or creator profile returns 404, the account may already be banned. Its assets and dead-drop descriptions can still be readable, so report the asset IDs through Roblox Support instead.
+   - Report the accounts that are still active from their profile pages.
    - Submit a support ticket at roblox.com/support with the full compromise report
    - Include asset IDs, creator names, and a description of the malicious behavior
    - Prioritize assets that still exist, such as live modules and dead-drop assets
