@@ -35,3 +35,7 @@ Each skill is one `SKILL.md` file with a name and description at the top.
 - Attackers change their tricks. Treat these as a checklist, not a guarantee.
 
 The safest rule is still the simplest one: only use models you made yourself or ones published by Roblox.
+
+## License
+
+[Apache 2.0](LICENSE)
